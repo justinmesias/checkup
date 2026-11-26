@@ -1,6 +1,6 @@
 {
-  "name": "CheckUP · Bubble Sheet Grader",
-  "short_name": "CheckUP",
+  "name": "CheckUP beta · Bubble Sheet Grader",
+  "short_name": "CheckUP beta",
   "description": "Print bubble sheets, scan them with your phone camera, and get scores and item analysis. Works offline.",
   "start_url": "./",
   "scope": "./",

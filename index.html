@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#1b1f27"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="CheckUP">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="theme-color" content="#1b1f27"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="CheckUP beta">
 <title>CheckUP · Bubble Sheet Grader</title>
 <style>
 /* VOICE: a calm, quick classroom tool — the teacher's grading desk between classes.
@@ -103,6 +103,8 @@ dialog::backdrop{background:#0009}
 .preview svg{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:700;z-index:20;max-width:90vw;transition:opacity .3s}
 .hidden{display:none!important}
+.beta{font:700 12px "Atkinson Hyperlegible",system-ui,sans-serif;background:var(--hi);color:#2b2300;padding:3px 8px;border-radius:999px;vertical-align:middle;letter-spacing:.02em}
+.foot{max-width:1100px;margin:0 auto;padding:0 max(4vw,14px) 40px;font-size:14px;color:var(--mute)}
 @media(max-width:700px){.dlg{grid-template-columns:1fr}}
 @media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--mute);font-size:12px}.stack td:empty{display:none}.brand small{display:none}nav a{padding:10px 11px}}
 #live{position:fixed;inset:0;z-index:50;background:#000;color:#fff;display:flex;flex-direction:column}
@@ -127,6 +129,7 @@ dialog::backdrop{background:#0009}
   <div class="sync" id="sync"></div>
 </div></header>
 <main id="view"></main>
+<footer id="foot" class="foot hidden"></footer>
 <dialog id="dlg"></dialog>
 <div class="toast hidden" id="toast" role="status"></div>
 <input type="file" id="fPhoto" accept="image/*" capture="environment" class="hidden">
@@ -1266,7 +1269,12 @@ function vResults() {
   $('#gResp').onclick = () => copyTable(tResp(), 'Responses');
 }
 
-document.getElementById('appName').textContent = Tsek.APP; document.title = Tsek.APP + ' · Bubble Sheet Grader';
+document.getElementById('appName').textContent = Tsek.APP; document.title = Tsek.APP + (OFFLINE ? ' beta' : '') + ' · Bubble Sheet Grader';
+if (OFFLINE) {
+  document.getElementById('appName').insertAdjacentHTML('afterend', ' <span class="beta">beta</span>');
+  const ft = document.getElementById('foot'); ft.classList.remove('hidden');
+  ft.innerHTML = 'CheckUP <b>beta</b>: still being tested. Found a problem or a misread sheet? Email a photo of it to <a href="mailto:jcmesias@up.edu.ph?subject=CheckUP%20beta%20problem">jcmesias@up.edu.ph</a>.';
+}
 render();
 }
 </script>
