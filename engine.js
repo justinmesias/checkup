@@ -369,6 +369,17 @@ const Tsek = (() => {
     return tot / n;
   }
 
+  // An X drawn inside a shaded circle (pen over pencil): both diagonals darker than the rest of the fill
+  function crossedInside(R, b) {
+    const { g, w, h, s } = R, paper = Math.max(b._paper || 255, 1);
+    const dk = (x, y) => { const X = Math.round(x * s), Y = Math.round(y * s); return X < 0 || Y < 0 || X >= w || Y >= h ? 0 : 1 - g[Y * w + X] / paper; };
+    const ray = deg => { const a = deg * Math.PI / 180; let t = 0, n = 0; for (let d = b.r * 0.2; d <= b.r * 0.8; d += 0.12) { let m = 0; for (let o = -6; o <= 6; o += 3) { const aa = a + o * Math.PI / 180; m = Math.max(m, dk(b.x + Math.cos(aa) * d, b.y + Math.sin(aa) * d)); } t += m; n++; } return t / n; };
+    const off = deg => { const a = deg * Math.PI / 180; let t = 0, n = 0; for (let d = b.r * 0.35; d <= b.r * 0.8; d += 0.12) { t += dk(b.x + Math.cos(a) * d, b.y + Math.sin(a) * d); n++; } return t / n; };
+    const lineA = (ray(45) + ray(225)) / 2, lineB = (ray(135) + ray(315)) / 2;
+    const base = (off(0) + off(90) + off(180) + off(270)) / 4;
+    return lineA > base + 0.13 && lineB > base + 0.13 && Math.min(lineA, lineB) > 0.45;
+  }
+
   function decide(ds, globalBase) {
     const sorted = ds.slice().sort((a, b) => a - b);
     let base = sorted[Math.floor((ds.length - 1) / 2)];
@@ -391,7 +402,7 @@ const Tsek = (() => {
     const crossedItems = [], rewrittenItems = [];
     L.items.forEach((row, qi) => {
       const ds = row.map(b => dv.get(b));
-      const xs = row.map((b, i) => ds[i] > gb + 0.08 && crossed(R, b));
+      const xs = row.map((b, i) => ds[i] > gb + 0.08 && (crossed(R, b) || crossedInside(R, b)));
       let r = decide(ds, gb);
       // a bubble with only a rewritten letter (thin strokes, often on correction fluid) is not an answer
       // when another bubble in the row is solidly shaded
