@@ -298,6 +298,28 @@ function visFlags(a, r) {
     return keep.length ? m[1] + keep.join(', ') : null;
   }).filter(Boolean);
 }
+/* answer editing (review screen) */
+function dropFlagItem(r, q) {
+  r.flags = r.flags.map(f => { const m = f.match(/^((?:Multiple|Faint|Crossed|Rewritten).*?item )([\d, ]+)$/); if (!m) return f;
+    const keep = m[2].split(',').map(x => +x.trim()).filter(n => n && n !== q); return keep.length ? m[1] + keep.join(', ') : null; }).filter(Boolean);
+}
+function setAns(r, i, v) {
+  r.orig = r.orig || {}; if (!(i in r.orig)) r.orig[i] = r.answers[i] || '';
+  r.answers[i] = LET.filter(l => v.includes(l)).join(''); dropFlagItem(r, i + 1); r.edited = true;
+}
+/* tapping a bubble: in a multiple-marked item, tapping one of the marks removes just that mark */
+function tapAns(r, i, l) {
+  const x = r.answers[i] || '';
+  setAns(r, i, x.length > 1 && x.includes(l) ? x.replace(l, '') : x === l ? '' : l);
+}
+function reviewItems(a, r) {
+  const u = keyUsed(a) || r.answers.length, set = new Set();
+  for (const f of r.flags) { const m = f.match(/^(?:Multiple|Faint|Crossed|Rewritten).*?item ([\d, ]+)$/); if (m) m[1].split(',').forEach(x => { const q = +x.trim(); if (q && q <= u) set.add(q); }); }
+  r.answers.forEach((x, i) => { if (x && x.length > 1 && i < u) set.add(i + 1); });
+  Object.keys(r.orig || {}).forEach(i => { if (+i < u) set.add(+i + 1); });
+  const multi = q => (r.answers[q - 1] || '').length > 1 ? 0 : 1;
+  return [...set].sort((p, q) => multi(p) - multi(q) || p - q);
+}
 function keyUsed(a) { let last = 0; a.key.forEach((k, i) => { if (k) last = i + 1; }); return last; }
 function keyDone(a) { const u = keyUsed(a); return u > 0 && a.key.slice(0, u).every(Boolean); }
 function keyStat(a) {
@@ -789,8 +811,9 @@ function openReview(rid) {
     ${secs.length > 1 ? `<div><label for="rvSec">Section</label><select id="rvSec">${(rCls(a, r) === '' ? [''] : []).concat(secs).map(id => `<option value="${E(id)}" ${rCls(a, r) === id ? 'selected' : ''}>${E(secName(id))}</option>`).join('')}</select></div>` : ''}
     <div><label for="rvNo">Class no.</label><select id="rvNo"><option value="">Not set</option>${Array.from({ length: 99 }, (_, i) => `<option value="${i + 1}" ${r.no === i + 1 ? 'selected' : ''}>${i + 1}${roster[i] ? ' · ' + E(roster[i]) : ''}</option>`).join('')}</select></div>
     ${r.wname ? `<p class="small">Written name: <b>${E(r.wname)}</b></p>` : ''}
-    <p class="small muted">Tap any bubble on the sheet to change that answer. Tap the marked bubble again to make the item blank.</p>
     <div id="rvFlags"></div>
+    <div id="rvEdit"></div>
+    <p class="small muted">You can also tap any bubble on the sheet. Tapping one of two shaded bubbles removes just that one. Tapping the only shaded bubble makes the item blank.</p>
     <div class="row"><button class="btn pri" id="rvDone">Done</button><button class="btn red" id="rvDel">Delete scan</button></div></div></div>`;
   const cv = $('#rv');
   const redraw = () => {
@@ -799,13 +822,19 @@ function openReview(rid) {
     $('#rvSrc').textContent = src ? 'Scanned photo' : (PH.cache.has(r.id) ? 'Redrawn sheet (the photo is kept only on the device that scanned it)' : 'Loading photo…');
     $('#rvScore').innerHTML = `${scoreOf(a, r)}<small> / ${possible(a)} · ${possible(a) ? Math.round(100 * scoreOf(a, r) / possible(a)) : 0}%</small>`;
     $('#rvFlags').innerHTML = visFlags(a, r).map(f => `<span class="chip">${E(f)}</span>`).join('');
+    const its = reviewItems(a, r), ed = $('#rvEdit');
+    ed.innerHTML = its.length ? `<h4 style="margin:6px 0 4px">Edit answers</h4><p class="small muted" style="margin:0 0 6px">Tap a letter to count it or not. For an item with two shades, turn off the one with the X.</p>` + its.map(q => {
+      const i = q - 1, x = r.answers[i] || '', k = a.key[i] || '', ok = x.length === 1 && k.includes(x), o = r.orig && i in r.orig ? r.orig[i] : null;
+      return `<div class="row" style="gap:6px;margin:4px 0;align-items:center"><b style="width:2.2em">${q}</b>${LET.map(l => `<button class="btn sm${x.includes(l) ? ' pri' : ''}" data-q="${i}" data-l="${l}" aria-pressed="${x.includes(l)}" style="min-width:40px">${l}</button>`).join('')}
+        <span class="small" style="color:${!k ? 'inherit' : ok ? '#1a7f45' : '#d1242f'}">${x.length > 1 ? x.length + ' marks' : !x ? 'blank' : k ? (ok ? '✓' : '✗') : ''}${o != null && o !== x ? ` <span class="muted">(scanned ${E(o || 'blank')})</span>` : ''}</span></div>`; }).join('') : '';
+    ed.querySelectorAll('button[data-q]').forEach(bt => bt.onclick = () => { const i = +bt.dataset.q, l = bt.dataset.l, x = r.answers[i] || ''; setAns(r, i, x.includes(l) ? x.replace(l, '') : x + l); touch(a); redraw(); });
   };
   cv.onclick = e => {
     const bb = cv.getBoundingClientRect(), x = (e.clientX - bb.left) / bb.width * L.W, y = (e.clientY - bb.top) / bb.height * L.H;
     let best = null, bd = 1e9;
     for (const b of L.bubbles) { const d = Math.hypot(b.x - x, b.y - y); if (d < bd) { bd = d; best = b; } }
     if (!best || bd > best.r * 1.7) return;
-    if (best.kind === 'item') { const i = best.q - 1, l = LET[best.opt]; r.answers[i] = r.answers[i] === l ? '' : l; r.flags = r.flags.filter(f => !/^(Multiple|Faint|Crossed|Rewritten)/.test(f)); }
+    if (best.kind === 'item') tapAns(r, best.q - 1, LET[best.opt]);
     else { r.dig[best.col] = r.dig[best.col] === best.val ? null : best.val; setNo(r); $('#rvNo').value = r.no ?? ''; }
     r.edited = true; touch(a); redraw();
   };
