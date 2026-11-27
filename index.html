@@ -284,6 +284,15 @@ const secLabel = a => clsList(a).map(secName).join(', ');
 function nameFor(a, no, cls, r) { const c = C(cls === undefined ? clsList(a)[0] : cls); return (c && no != null && c.roster[no - 1]) || (r && r.wname) || ''; }
 function migrate() { for (const a of S.assessments) if (!a.classIds) { a.classIds = a.classId ? [a.classId] : []; delete a.classId; } }
 function keySet(a) { return a.key.filter(k => k).length; }
+// Warnings shown for a sheet: item warnings only for items that are in the test (up to the last keyed item)
+function visFlags(a, r) {
+  const u = keyUsed(a); if (!u) return r.flags;
+  return r.flags.map(f => {
+    const m = f.match(/^(.*?item )([\d, ]+)$/); if (!m) return f;
+    const keep = m[2].split(',').map(x => +x.trim()).filter(q => q && q <= u);
+    return keep.length ? m[1] + keep.join(', ') : null;
+  }).filter(Boolean);
+}
 function keyUsed(a) { let last = 0; a.key.forEach((k, i) => { if (k) last = i + 1; }); return last; }
 function keyDone(a) { const u = keyUsed(a); return u > 0 && a.key.slice(0, u).every(Boolean); }
 function keyStat(a) {
@@ -393,7 +402,7 @@ function firstRun() {
   return `<div class="empty"><h2>Grade a stack of bubble sheets in minutes</h2>
   <div class="steps"><div><h3>1 · Make an assessment</h3><p class="muted">Pick 10, 20, 30, 40 or 50 items and tap in the answer key.</p></div>
   <div><h3>2 · Print the sheets</h3><p class="muted">Download a PDF: 4 quarter slips, 2 half slips or 1 full sheet per page.</p></div>
-  <div><h3>3 · Snap and score</h3><p class="muted">Photograph each slip. ${Tsek.APP} reads the bubbles, scores them, and builds the item analysis.</p></div></div>
+  <div><h3>3 · Scan and score</h3><p class="muted">${LIVE_OK ? 'Use <b>Live scan</b>: hold each slip up to the camera and it beeps when scored.' : 'Photograph each slip.'} ${Tsek.APP} reads the bubbles, scores them, and builds the item analysis.</p></div></div>
   <a class="btn pri" href="#assessments" id="mk">Create an assessment</a> <a class="btn" href="#classes">Add a class list first</a></div>`;
 }
 function cardHTML(r) {
@@ -403,7 +412,7 @@ function cardHTML(r) {
   return `<button class="card scan" data-rid="${E(r.id)}"><canvas id="cv-${E(r.id)}"></canvas><div>
     <div class="score">${scoreOf(a, r)}<small> / ${possible(a)}</small></div>
     <div class="who">${r.no != null ? 'No. ' + r.no : 'No class no.'}${nm ? ' · ' + E(nm) : ''}${r.npend ? ' <span class="muted small">· reading name…</span>' : ''}</div>${multiSec ? `<div class="small muted">${E(secName(rCls(a, r)))}</div>` : ''}
-    ${r.flags.map(f => `<span class="chip">${E(f)}</span>`).join('')}${r.edited ? '<span class="chip ok">Corrected</span>' : ''}
+    ${visFlags(a, r).map(f => `<span class="chip">${E(f)}</span>`).join('')}${r.edited ? '<span class="chip ok">Corrected</span>' : ''}
     <canvas class="strip" data-strip="${E(r.id)}"></canvas>
     <div class="small muted">Tap to preview</div>
     ${sess.prev ? `<p class="small muted">Replaced an earlier scan for no. ${r.no}. <span class="btn sm" role="button" tabindex="0" data-undo="${E(r.id)}">Undo</span></p>` : ''}
@@ -447,7 +456,7 @@ async function openLive(a) {
   const showRes = ids => {
     const box = $('#lvRes'); if (!box) return; const P = possible(a);
     box.innerHTML = ids.map(id => { const r = a.results.find(x => x.id === id); if (!r) return ''; const sc = scoreOf(a, r), nm = nameFor(a, r.no, rCls(a, r), r);
-      return `<div><span class="lvScore">${sc}<small> / ${P}</small></span> ${r.no != null ? 'No. ' + r.no : 'No class no.'}${nm ? ' · ' + E(nm) : ''}${r.flags.length ? `<div class="small">⚠ ${E(r.flags.join(' · '))}</div>` : ''}</div>`; }).join('');
+      return `<div><span class="lvScore">${sc}<small> / ${P}</small></span> ${r.no != null ? 'No. ' + r.no : 'No class no.'}${nm ? ' · ' + E(nm) : ''}${visFlags(a, r).length ? `<div class="small">⚠ ${E(visFlags(a, r).join(' · '))}</div>` : ''}</div>`; }).join('');
     box.classList.remove('hidden'); clearTimeout(showRes.t); showRes.t = setTimeout(() => box.classList.add('hidden'), 2600);
   };
   const tick = async () => {
@@ -495,7 +504,7 @@ function bannerHTML(a) {
   const P = possible(a);
   if (!res.length) return `<div class="banner bad" aria-live="assertive"><div class="score">Not read</div><p>${E(fails[0] ? fails[0].error : 'Try again.')}</p></div>`;
   return `<div class="banner good" aria-live="polite">${res.map(r => { const nm = nameFor(a, r.no, rCls(a, r), r); const sc = scoreOf(a, r);
-    return `<div class="bline"><div class="score">${sc}<small> / ${P} · ${P ? Math.round(100 * sc / P) : 0}%</small></div><div class="who">${r.no != null ? 'No. ' + r.no : 'No class no.'}${nm ? ' · ' + E(nm) : ''}${clsList(a).length > 1 ? ' · ' + E(secName(rCls(a, r))) : ''}${r.npend ? ' <span class="small">· reading name…</span>' : ''}</div>${r.flags.map(f => `<span class="chip">${E(f)}</span>`).join('')}${SESSION.get(r.id)?.prev ? '<span class="chip">Replaced earlier scan</span>' : ''}</div>`; }).join('')}
+    return `<div class="bline"><div class="score">${sc}<small> / ${P} · ${P ? Math.round(100 * sc / P) : 0}%</small></div><div class="who">${r.no != null ? 'No. ' + r.no : 'No class no.'}${nm ? ' · ' + E(nm) : ''}${clsList(a).length > 1 ? ' · ' + E(secName(rCls(a, r))) : ''}${r.npend ? ' <span class="small">· reading name…</span>' : ''}</div>${visFlags(a, r).map(f => `<span class="chip">${E(f)}</span>`).join('')}${SESSION.get(r.id)?.prev ? '<span class="chip">Replaced earlier scan</span>' : ''}</div>`; }).join('')}
     ${fails.length ? `<p class="small"><span class="chip red">${fails.length} not read</span> ${E(fails[0].error)}</p>` : ''}</div>`;
 }
 
@@ -689,9 +698,11 @@ function drawSheet(cv, L, a, r, src, s, stamp) {
     ctx.textAlign = 'start'; ctx.textBaseline = 'alphabetic';
   }
   const ring = (b, col, dash) => { ctx.beginPath(); ctx.arc(b.x * s, b.y * s, (b.r + 0.9) * s, 0, 7); ctx.setLineDash(dash ? [s * 0.9, s * 0.7] : []); ctx.lineWidth = 0.75 * s; ctx.strokeStyle = col; ctx.stroke(); ctx.setLineDash([]); };
-  const fl = r.flags.join(' | '), pick = re => ((fl.match(re) || [, ''])[1]).split(',').map(Number).filter(Boolean);
-  const amb = new Set([...pick(/Faint or erased marks: item ([\d, ]+)/), ...pick(/Crossed-out mark ignored: item ([\d, ]+)/)]);
+  const fl = visFlags(a, r).join(' | '), pick = re => ((fl.match(re) || [, ''])[1]).split(',').map(Number).filter(Boolean);
+  const amb = new Set([...pick(/Faint or erased marks: item ([\d, ]+)/), ...pick(/Crossed-out mark ignored: item ([\d, ]+)/), ...pick(/Rewritten letter ignored: item ([\d, ]+)/)]);
+  const used = keyUsed(a);
   L.items.forEach((row, i) => {
+    if (used && i >= used) return; // items past the end of the test: no marks or highlights
     const k = a.key[i] || '', x = r.answers[i] || '';
     if (amb.has(i + 1) || x.length > 1) { ctx.fillStyle = 'rgba(255,214,10,.35)'; const b0 = row[0]; ctx.fillRect((b0.x - b0.r - 9) * s, (b0.y - b0.r - 1) * s, (5 * L.spec.px + 10) * s, (2 * b0.r + 2) * s); }
     row.forEach((b, j) => {
@@ -746,14 +757,14 @@ function openReview(rid) {
     drawSheet(cv, L, a, r, src, Math.max(3, w / L.W) * (devicePixelRatio > 1 ? 1.5 : 1), true);
     $('#rvSrc').textContent = src ? 'Scanned photo' : (PH.cache.has(r.id) ? 'Redrawn sheet (the photo is kept only on the device that scanned it)' : 'Loading photo…');
     $('#rvScore').innerHTML = `${scoreOf(a, r)}<small> / ${possible(a)} · ${possible(a) ? Math.round(100 * scoreOf(a, r) / possible(a)) : 0}%</small>`;
-    $('#rvFlags').innerHTML = r.flags.map(f => `<span class="chip">${E(f)}</span>`).join('');
+    $('#rvFlags').innerHTML = visFlags(a, r).map(f => `<span class="chip">${E(f)}</span>`).join('');
   };
   cv.onclick = e => {
     const bb = cv.getBoundingClientRect(), x = (e.clientX - bb.left) / bb.width * L.W, y = (e.clientY - bb.top) / bb.height * L.H;
     let best = null, bd = 1e9;
     for (const b of L.bubbles) { const d = Math.hypot(b.x - x, b.y - y); if (d < bd) { bd = d; best = b; } }
     if (!best || bd > best.r * 1.7) return;
-    if (best.kind === 'item') { const i = best.q - 1, l = LET[best.opt]; r.answers[i] = r.answers[i] === l ? '' : l; r.flags = r.flags.filter(f => !/^(Multiple|Faint|Crossed)/.test(f)); }
+    if (best.kind === 'item') { const i = best.q - 1, l = LET[best.opt]; r.answers[i] = r.answers[i] === l ? '' : l; r.flags = r.flags.filter(f => !/^(Multiple|Faint|Crossed|Rewritten)/.test(f)); }
     else { r.dig[best.col] = r.dig[best.col] === best.val ? null : best.val; setNo(r); $('#rvNo').value = r.no ?? ''; }
     r.edited = true; touch(a); redraw();
   };
@@ -1241,7 +1252,7 @@ function vResults() {
       <div class="row"><button class="btn pri" id="gScores">Copy scores</button><button class="btn" id="gItems">Copy item analysis</button><button class="btn" id="gResp">Copy all responses</button><a class="btn" href="https://sheets.new" target="_blank" rel="noopener">Open a new Google Sheet ↗</a></div></div>
     <div class="row"><button class="btn" id="xScores">Scores CSV</button><button class="btn" id="xItems">Item analysis CSV</button><button class="btn" id="xResp">All responses CSV</button></div>
     <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h3>Students</h3><div class="seg" role="group" aria-label="Sort students">${[['name', 'Surname'], ['no', 'Class no.'], ['score', 'Score']].map(([k, l]) => `<button data-sort="${k}" aria-pressed="${cur.sort === k}">${l}</button>`).join('')}</div></div>${cur.sort === 'name' && rows.length && rows.every(x => !x.nm) ? `<p class="small muted">${OFFLINE ? 'No typed names. Add a class list in Classes to sort by surname.' : 'No names yet. Tap <b>Read written names with Claude</b> below to sort by surname.'}</p>` : ''}<table class="stack"><thead><tr>${multi && cur.rsec === 'all' ? '<th>Section</th>' : ''}<th class="n">No.</th><th>Name</th><th class="n">Score</th><th class="n">%</th><th>Notes</th></tr></thead><tbody>
-      ${rows.map(({ r, s, nm, sec }) => `<tr data-open="${E(r.id)}" style="cursor:pointer">${multi && cur.rsec === 'all' ? `<td>${E(secName(sec))}</td>` : ''}<td class="n">${r.no ?? '–'}</td><td>${nm ? `<div>${E(nm)}</div>` : ''}<canvas class="strip" data-strip="${E(r.id)}" aria-label="Name as written on the sheet"></canvas>${!nm && !r.npend ? '' : r.npend ? '<div class="small muted">reading name…</div>' : ''}</td><td class="n"><b>${s}</b> / ${P}</td><td class="n">${P ? Math.round(100 * s / P) : 0}%</td><td>${dupe.has(sec + ':' + r.no) ? '<span class="chip red">Duplicate no.</span>' : ''}${r.flags.map(f => `<span class="chip">${E(f)}</span>`).join('')}${r.edited ? '<span class="chip ok">Corrected</span>' : ''}</td></tr>`).join('')}
+      ${rows.map(({ r, s, nm, sec }) => `<tr data-open="${E(r.id)}" style="cursor:pointer">${multi && cur.rsec === 'all' ? `<td>${E(secName(sec))}</td>` : ''}<td class="n">${r.no ?? '–'}</td><td>${nm ? `<div>${E(nm)}</div>` : ''}<canvas class="strip" data-strip="${E(r.id)}" aria-label="Name as written on the sheet"></canvas>${!nm && !r.npend ? '' : r.npend ? '<div class="small muted">reading name…</div>' : ''}</td><td class="n"><b>${s}</b> / ${P}</td><td class="n">${P ? Math.round(100 * s / P) : 0}%</td><td>${dupe.has(sec + ':' + r.no) ? '<span class="chip red">Duplicate no.</span>' : ''}${visFlags(a, r).map(f => `<span class="chip">${E(f)}</span>`).join('')}${r.edited ? '<span class="chip ok">Corrected</span>' : ''}</td></tr>`).join('')}
     </tbody></table><p class="small muted">Tap a row to see the whole sheet with right and wrong answers marked. The name strip is the photo of what the student wrote.</p>
     ${rows.some(x => !x.nm) && !OFFLINE ? `<div class="row"><button class="btn sm" id="rdNames">Read written names with Claude</button><span class="small muted">Types out the handwritten names so you can sort by surname. Uses a little of your Claude usage.</span></div>` : ''}</div>
     <div class="card"><h3>Item analysis</h3><p class="small muted">Difficulty p = share who got it right. Discrimination D = upper ${st.g} minus lower ${st.g} students (27% groups), divided by group size. Key in green.</p>

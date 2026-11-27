@@ -328,7 +328,16 @@ const Tsek = (() => {
     let acc = 0, paper = 255; const target = cnt * 0.9;
     for (let v = 0; v < 256; v++) { acc += hist[v]; if (acc >= target) { paper = v; break; } }
     b._paper = paper;
-    return Math.max(0, Math.min(1, 1 - (sum / Math.max(n, 1)) / Math.max(paper, 1)));
+    const d = Math.max(0, Math.min(1, 1 - (sum / Math.max(n, 1)) / Math.max(paper, 1)));
+    // coverage: share of the inside that is actually dark. Solid shading is even (high);
+    // a handwritten letter over correction fluid is thin strokes on white (low).
+    let dark = 0; const cut = paper * (1 - Math.max(0.12, d * 0.5));
+    for (let y = Math.floor(cy - rad); y <= cy + rad; y++) for (let x = Math.floor(cx - rad); x <= cx + rad; x++) {
+      if ((x - cx) ** 2 + (y - cy) ** 2 > rad * rad || x < 0 || y < 0 || x >= w || y >= h) continue;
+      if (g[y * w + x] < cut) dark++;
+    }
+    b._cov = dark / Math.max(n, 1);
+    return d;
   }
 
   // An X drawn over a bubble leaves strokes running out past the circle on the diagonals,
@@ -379,11 +388,19 @@ const Tsek = (() => {
     for (const b of L.bubbles) { const d = readBubble(R, b); dv.set(b, d); all.push(d); }
     const gb = pct(all, 0.5);
     const answers = [], flags = [], ambItems = [];
-    const crossedItems = [];
+    const crossedItems = [], rewrittenItems = [];
     L.items.forEach((row, qi) => {
       const ds = row.map(b => dv.get(b));
       const xs = row.map((b, i) => ds[i] > gb + 0.08 && crossed(R, b));
       let r = decide(ds, gb);
+      // a bubble with only a rewritten letter (thin strokes, often on correction fluid) is not an answer
+      // when another bubble in the row is solidly shaded
+      const maxCov = Math.max(...row.map((b, i) => ds[i] > gb + 0.17 ? b._cov : 0));
+      const sparse = row.map((b, i) => ds[i] > gb + 0.08 && b._cov < 0.88 && b._cov <= maxCov - 0.1), solid = row.map((b, i) => ds[i] > gb + 0.17 && b._cov >= 0.93);
+      if (sparse.some(Boolean) && solid.some(Boolean) && r.marked.length > 1) {
+        const r3 = decide(ds.map((d, i) => sparse[i] ? gb : d), gb);
+        if (r3.marked.length >= 1) { r = r3; rewrittenItems.push(qi + 1); }
+      }
       if (xs.some(Boolean)) {
         // ignore crossed-out bubbles, but only when another real mark remains
         const r2 = decide(ds.map((d, i) => xs[i] ? gb : d), gb);
@@ -402,6 +419,7 @@ const Tsek = (() => {
     const multi = answers.map((a, i) => a.length > 1 ? i + 1 : 0).filter(Boolean);
     if (multi.length) flags.push('Multiple marks: item ' + multi.join(', '));
     if (crossedItems.length) flags.push('Crossed-out mark ignored: item ' + crossedItems.join(', '));
+    if (rewrittenItems.length) flags.push('Rewritten letter ignored: item ' + rewrittenItems.join(', '));
     if (ambItems.length) flags.push('Faint or erased marks: item ' + ambItems.join(', '));
     return { answers, classNo, flags, ambItems, multi, d: L.bubbles.map(b => +dv.get(b).toFixed(3)) };
   }

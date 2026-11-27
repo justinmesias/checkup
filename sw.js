@@ -1,5 +1,5 @@
 /* CheckUP service worker: keeps the app working offline */
-const VERSION = 'checkup-6f997e65';
+const VERSION = 'checkup-c2157afc';
 const FILES = ['./', 'index.html', 'engine.js', 'scanworker.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
   'libs/jspdf.umd.min.js', 'libs/pdf.min.js', 'libs/pdf.worker.min.js', 'libs/xlsx.full.min.js', 'libs/mammoth.browser.min.js'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); });
