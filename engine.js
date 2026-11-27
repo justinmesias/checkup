@@ -469,7 +469,8 @@ const Tsek = (() => {
     prep = prep || prepare(imageData);
     const { G, area } = prep, cands = prep.cands.slice();
     const quads = pickQuad(cands, L);
-    if (!quads.length) return { ok: false, error: 'Could not find the four corner squares. Fit the whole slip in the photo, flat and well lit.' };
+    const marks = cands.map(c => [Math.round(c.x), Math.round(c.y), c.a]);
+    if (!quads.length) return { ok: false, marks, error: 'Could not find the four corner squares. Fit the whole slip in the photo, flat and well lit.' };
     const used = new Set(), slips = []; let sawWrong = false, foundCode = null;
     let tries = 0;
     for (const qd of quads) {
@@ -485,7 +486,7 @@ const Tsek = (() => {
         const pen = Math.abs(Math.log((top / left) / ((L.W - 2 * tpl[0][0]) / (L.H - 2 * tpl[0][1]))));
         const dk = darkAt(G, H, L.orient.x, L.orient.y, L.orient.s * 0.35);
         const score = dk - 0.6 * pen;
-        if (!best || score > best.score) best = { H, score, dk, pen };
+        if (!best || score > best.score) best = { H, score, dk, pen, img };
       }
       if (best.dk < 0.25 || best.pen > 0.3) { sawWrong = true; continue; }
       const code = readCode(G, best.H, L);
@@ -494,12 +495,12 @@ const Tsek = (() => {
       const R = rectify(G, best.H, L, L.small ? 8 : 6);
       qd.ids.forEach(i => used.add(i));
       const cx = quad.reduce((a, p) => a + p.x, 0) / 4, cy = quad.reduce((a, p) => a + p.y, 0) / 4;
-      slips.push(Object.assign({ ok: true, rect: R, cx, cy }, readSheet(R, L)));
+      slips.push(Object.assign({ ok: true, rect: R, cx, cy, quad: best.img.map(p => [Math.round(p.x), Math.round(p.y)]) }, readSheet(R, L)));
     }
-    if (!slips.length) return { ok: false, detected: foundCode ? layoutFromCode(foundCode) : null, error: sawWrong ? 'Found corner squares, but not a ' + L.n + '-item sheet. Check that this slip matches the assessment.' : 'Could not find the four corner squares. Fit the whole slip in the photo, flat and well lit.' };
+    if (!slips.length) return { ok: false, marks, detected: foundCode ? layoutFromCode(foundCode) : null, error: sawWrong ? 'Found corner squares, but not a ' + L.n + '-item sheet. Check that this slip matches the assessment.' : 'Could not find the four corner squares. Fit the whole slip in the photo, flat and well lit.' };
     // reading order: top to bottom, then left to right
     slips.sort((a, b) => Math.abs(a.cy - b.cy) > 0.25 * Math.sqrt(area) / 2 ? a.cy - b.cy : a.cx - b.cx);
-    return { ok: true, slips };
+    return { ok: true, slips, marks };
   }
 
   return { prepare, APP, FORMATS, FMTS, DEFAULT_FMT, SIZES, fit, LET, layout, slipSVG, drawPDF, scan, esc, _ring: ringScore };

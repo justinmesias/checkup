@@ -109,7 +109,12 @@ dialog::backdrop{background:#0009}
 @media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--mute);font-size:12px}.stack td:empty{display:none}.brand small{display:none}nav a{padding:10px 11px}}
 #live{position:fixed;inset:0;z-index:50;background:#000;color:#fff;display:flex;flex-direction:column}
 #live video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.lvGuide{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(82vw,calc(70vh * 0.77));max-height:70vh;border:3px dashed #ffffffb0;border-radius:12px;pointer-events:none}
+#lvOv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#lvOv .gd{fill:none;stroke:#ffffff80;stroke-width:2;stroke-dasharray:8 7}
+#lvOv .tg{fill:#0000;stroke:#fff;stroke-width:4;transition:fill .12s,stroke .12s}
+#lvOv .tg.on{fill:#2ecc7155;stroke:#2ecc71}
+#lvOv .qd{fill:#2ecc7122;stroke:#2ecc71;stroke-width:4}
+#lvOv .shade{fill:#0006}
 .lvTop,.lvBottom{position:absolute;left:0;right:0;display:flex;gap:8px;align-items:center;padding:max(12px,env(safe-area-inset-top)) 14px 12px;flex-wrap:wrap}
 .lvTop{top:0;justify-content:space-between}.lvBottom{bottom:0;flex-direction:column;padding-bottom:max(18px,env(safe-area-inset-bottom))}
 .lvPill{background:#000a;padding:8px 14px;border-radius:999px;font-weight:700;text-align:center}
@@ -436,23 +441,55 @@ function scanAsync(id, L) {
 async function openLive(a) {
   unlockAudio();
   const L = LA(a), ov = document.createElement('div'); ov.id = 'live';
-  ov.innerHTML = `<video id="lvVid" playsinline muted autoplay></video>
+  ov.innerHTML = `<video id="lvVid" playsinline muted autoplay></video><svg id="lvOv" aria-hidden="true"></svg>
     <div class="lvTop"><button class="btn sm" id="lvClose">Done</button><span id="lvCount" class="lvPill"></span><button class="btn sm" id="lvTorch" hidden>Light</button></div>
     <div class="lvBottom"><div id="lvRes" class="lvRes hidden"></div><div id="lvMsg" class="lvPill">Starting the camera…</div>
     ${clsList(a).length > 1 ? `<div class="lvPill small">Section: ${E(secName(scanCls(a)))}</div>` : ''}</div>`;
   document.body.appendChild(ov); document.body.style.overflow = 'hidden';
   let stream = null, stopped = false, wake = null, last = null, lastSig = null, empty = 0, count = 0;
   const msg = t => { const m = $('#lvMsg'); if (m) m.textContent = t; };
-  const close = () => { stopped = true; try { stream && stream.getTracks().forEach(t => t.stop()); } catch (e) {} try { wake && wake.release(); } catch (e) {} ov.remove(); document.body.style.overflow = ''; touch(a); render(); };
+  const close = () => { stopped = true; try { window.removeEventListener('resize', onRs); } catch (e) {} try { stream && stream.getTracks().forEach(t => t.stop()); } catch (e) {} try { wake && wake.release(); } catch (e) {} ov.remove(); document.body.style.overflow = ''; touch(a); render(); };
   $('#lvClose').onclick = close;
   try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }); }
   catch (e) { close(); toast(e && e.name === 'NotAllowedError' ? 'Camera permission was refused. Allow the camera for this site in your browser settings.' : 'The camera could not be started. Use Take a photo instead.'); return; }
   const vid = $('#lvVid'); vid.srcObject = stream; try { await vid.play(); } catch (e) {}
   try { wake = navigator.wakeLock && await navigator.wakeLock.request('screen'); } catch (e) {}
   const track = stream.getVideoTracks()[0]; let torch = false;
+  try { const caps = track.getCapabilities && track.getCapabilities(); if (caps && caps.focusMode && caps.focusMode.includes('continuous')) await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch (e) {}
   try { const caps = track.getCapabilities && track.getCapabilities(); if (caps && caps.torch) { const tb = $('#lvTorch'); tb.hidden = false; tb.onclick = async () => { torch = !torch; try { await track.applyConstraints({ advanced: [{ torch }] }); tb.setAttribute('aria-pressed', torch); } catch (e) {} }; } } catch (e) {}
   const cv = document.createElement('canvas'), ctx = cv.getContext('2d', { willReadFrequently: true });
-  msg('Point at a sheet. Fit all 4 corner squares in view.');
+  msg('Line up the 4 corner squares of the sheet with the 4 boxes.');
+  /* ZipGrade-style guide: a frame shaped like this sheet with a box for each corner square */
+  const F = Tsek.FORMATS[L.fmt], svg = $('#lvOv');
+  let G = null;
+  const geom = () => {
+    const sw = ov.clientWidth, sh = ov.clientHeight, vw = vid.videoWidth || 16, vh = vid.videoHeight || 9;
+    const k = Math.min(sw / vw, sh / vh), ox = (sw - vw * k) / 2, oy = (sh - vh * k) / 2;
+    const rot = F.W > F.H && sh > sw; // landscape slip on a portrait screen: turn the paper sideways
+    const W = rot ? F.H : F.W, H = rot ? F.W : F.H;
+    const y0 = Math.max(70, oy), y1 = Math.min(sh - 150, oy + vh * k), x0 = Math.max(0, ox), x1 = Math.min(sw, ox + vw * k);
+    const aw = (x1 - x0) * 0.9, ah = Math.max(60, y1 - y0) * 0.92;
+    const gs = Math.min(aw / W, ah / H), gw = W * gs, gh = H * gs, gx = (x0 + x1 - gw) / 2, gy = (y0 + Math.max(y1, y0 + 60) - gh) / 2;
+    const mc = L.markers[0][0] * gs, ms = Math.max(30, F.m * gs * 1.9);
+    const tg = [[gx + mc, gy + mc], [gx + gw - mc, gy + mc], [gx + gw - mc, gy + gh - mc], [gx + mc, gy + gh - mc]];
+    G = { sw, sh, k, ox, oy, gx, gy, gw, gh, tg, ms, mk: F.m * gs };
+    return G;
+  };
+  const draw = (lit, quads) => {
+    const g = geom(), sv = s => +s.toFixed(1);
+    let h = `<path class="shade" fill-rule="evenodd" d="M0 0H${g.sw}V${g.sh}H0Z M${sv(g.gx)} ${sv(g.gy)}h${sv(g.gw)}v${sv(g.gh)}h${sv(-g.gw)}Z"/>`;
+    h += `<rect class="gd" x="${sv(g.gx)}" y="${sv(g.gy)}" width="${sv(g.gw)}" height="${sv(g.gh)}" rx="6"/>`;
+    for (const q of quads || []) h += `<polygon class="qd" points="${q.map(p => sv(p[0]) + ',' + sv(p[1])).join(' ')}"/>`;
+    g.tg.forEach(([x, y], i) => { h += `<rect class="tg${lit[i] ? ' on' : ''}" x="${sv(x - g.ms / 2)}" y="${sv(y - g.ms / 2)}" width="${sv(g.ms)}" height="${sv(g.ms)}" rx="4"/>`; });
+    svg.setAttribute('viewBox', `0 0 ${g.sw} ${g.sh}`); svg.innerHTML = h;
+  };
+  draw([0, 0, 0, 0]);
+  const onRs = () => draw([0, 0, 0, 0]); window.addEventListener('resize', onRs);
+  const toScreen = (x, y, csc) => [G.ox + x / csc * G.k, G.oy + y / csc * G.k];
+  const litFrom = (marks, csc) => G.tg.map(([tx, ty]) => (marks || []).some(([x, y, a]) => { const [X, Y] = toScreen(x, y, csc), sz = Math.sqrt(a) / csc * G.k; return Math.hypot(X - tx, Y - ty) < G.ms * 0.75 && sz > G.mk * 0.35 && sz < G.mk * 2.6; }));
+  /* sharpness of a read slip, so the clearer of the two matching frames is the one kept */
+  const sharp = R => { if (!R || !R.g) return 0; const { g, w, h } = R; let t = 0, n = 0; for (let y = 2; y < h - 2; y += 3) for (let x = 2; x < w - 2; x += 3) { const i = y * w + x; t += Math.abs(g[i] - g[i + 1]) + Math.abs(g[i] - g[i + w]); n++; } return n ? t / n : 0; };
+  let lastRes = null;
   const showRes = ids => {
     const box = $('#lvRes'); if (!box) return; const P = possible(a);
     box.innerHTML = ids.map(id => { const r = a.results.find(x => x.id === id); if (!r) return ''; const sc = scoreOf(a, r), nm = nameFor(a, r.no, rCls(a, r), r);
@@ -468,18 +505,22 @@ async function openLive(a) {
     let res; try { res = await scanAsync(ctx.getImageData(0, 0, cv.width, cv.height), L); } catch (e) { res = { ok: false }; }
     if (stopped) return;
     if (!res.ok) {
-      if (++empty >= 3) { lastSig = null; } last = null;
-      msg(/not a \d+-item/.test(res.error || '') ? 'That sheet does not match this assessment.' : 'Looking for the 4 corner squares…');
+      if (++empty >= 3) { lastSig = null; } last = null; lastRes = null;
+      geom(); const lit = litFrom(res.marks, sc), nl = lit.filter(Boolean).length; draw(lit);
+      msg(/not a \d+-item/.test(res.error || '') ? 'That sheet does not match this assessment.' : nl === 4 ? 'Hold steady…' : nl ? `${nl} of 4 corners found. Move until all 4 boxes turn green.` : 'Line up the 4 corner squares of the sheet with the 4 boxes.');
     } else {
+      geom(); draw([1, 1, 1, 1], res.slips.map(x => (x.quad || []).map(p => toScreen(p[0], p[1], sc))));
       empty = 0;
       const sig = res.slips.map(x => x.classNo + ':' + x.answers.join(',')).join('|');
       if (sig === lastSig) msg('Scanned ✓  Put the next sheet in view.');
       else if (last === sig) {
-        const ids = res.slips.map(x => addResult(a, x)), re = ids.filter(id => SESSION.get(id) && SESSION.get(id).prev).length;
+        const pick = lastRes && lastRes.slips.length === res.slips.length && lastRes.slips.reduce((t, x) => t + sharp(x.rect), 0) > res.slips.reduce((t, x) => t + sharp(x.rect), 0) ? lastRes : res;
+        lastRes = null;
+        const ids = pick.slips.map(x => addResult(a, x)), re = ids.filter(id => SESSION.get(id) && SESSION.get(id).prev).length;
         count += ids.length - re; lastSig = sig; last = null;
         beep(true); touch(a); showRes(ids); $('#lvCount').textContent = count + ' scanned';
         msg(re ? `Rescanned: replaced the earlier scan${re > 1 ? 's' : ''}. Put the next sheet in view.` : 'Scanned ✓  Put the next sheet in view.');
-      } else { last = sig; msg('Hold steady…'); }
+      } else { last = sig; lastRes = res; msg('Hold steady…'); }
     }
     setTimeout(tick, 40);
   };
