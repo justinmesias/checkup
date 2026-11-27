@@ -24,8 +24,8 @@ a{color:var(--blue)}
 .top{position:sticky;top:0;z-index:5;background:var(--ink);color:var(--bg)}
 .bar{max-width:1100px;margin:auto;display:flex;align-items:center;gap:12px;padding:10px max(4vw,14px);flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:10px;font:800 24px Archivo,sans-serif;margin-right:auto}
-.brand i{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--bg);color:var(--ink);font-style:normal;font-size:17px;position:relative}
-.brand i::after{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--ink)}
+.brand i{display:inline-block;flex:none;width:30px;height:30px;box-sizing:border-box;border-radius:50%;border:2.5px solid currentColor;background:transparent;position:relative}
+.brand i::after{content:"";position:absolute;inset:5px;border-radius:50%;background:currentColor}
 .brand small{font:400 13px "Atkinson Hyperlegible",system-ui,sans-serif;opacity:.75}
 nav{display:flex;gap:4px;overflow-x:auto;max-width:100%}
 nav a{color:inherit;text-decoration:none;padding:10px 14px;border-radius:999px;font-weight:700;white-space:nowrap;min-height:44px;display:flex;align-items:center}
@@ -103,7 +103,7 @@ dialog::backdrop{background:#0009}
 .preview svg{width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
 .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:700;z-index:20;max-width:90vw;transition:opacity .3s}
 .hidden{display:none!important}
-.beta{font:700 12px "Atkinson Hyperlegible",system-ui,sans-serif;background:var(--hi);color:#2b2300;padding:3px 8px;border-radius:999px;vertical-align:middle;letter-spacing:.02em}
+.beta{font:700 12px "Atkinson Hyperlegible",system-ui,sans-serif;background:#ffd84d;color:#2b2300;padding:3px 8px;border-radius:999px;vertical-align:middle;letter-spacing:.02em}
 .foot{max-width:1100px;margin:0 auto;padding:0 max(4vw,14px) 40px;font-size:14px;color:var(--mute)}
 @media(max-width:700px){.dlg{grid-template-columns:1fr}}
 @media(max-width:600px){table{font-size:13px}.stack thead{display:none}.stack tr{display:grid;padding-block:10px}.stack td{display:flow-root;border:0;padding:3px 0;padding-inline-start:8em;text-align:start}.stack td::before{content:attr(data-l);float:inline-start;width:7.5em;margin-inline-start:-8em;white-space:normal;color:var(--mute);font-size:12px}.stack td:empty{display:none}.brand small{display:none}nav a{padding:10px 11px}}
