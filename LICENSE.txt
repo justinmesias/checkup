@@ -1,0 +1,10 @@
+CheckUP · Bubble Sheet Grader
+Copyright (c) 2026 John Justin C. Mesias. All rights reserved.
+
+This software and its source code are the property of the author.
+You may use the hosted app to grade your own classes.
+You may not copy, modify, redistribute, sell, or publish this software or any
+part of its source code, or create derivative works from it, without the
+author's prior written permission.
+
+For permission or questions: jcmesias@up.edu.ph

@@ -1,11 +1,2 @@
-/* CheckUP service worker: keeps the app working offline */
-const VERSION = 'checkup-9a5535da';
-const FILES = ['./', 'index.html', 'engine.js', 'scanworker.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
-  'libs/jspdf.umd.min.js', 'libs/pdf.min.js', 'libs/pdf.worker.min.js', 'libs/xlsx.full.min.js', 'libs/mammoth.browser.min.js'];
-self.addEventListener('install', e => { e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES))); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== VERSION).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
-self.addEventListener('fetch', e => {
-  const u = new URL(e.request.url);
-  if (e.request.method !== 'GET' || u.origin !== location.origin) return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request).then(r => { if (r.ok) { const c = r.clone(); caches.open(VERSION).then(ca => ca.put(e.request, c)); } return r; }).catch(() => caches.match('index.html'))));
-});
+/*! CheckUP · Bubble Sheet Grader. (c) 2026 John Justin C. Mesias. All rights reserved. Not to be copied, modified or redistributed without permission. */
+const VERSION="checkup-fb7d2883",FILES=["./","index.html","engine.js","scanworker.js","manifest.webmanifest","icon-192.png","icon-512.png","apple-touch-icon.png","libs/jspdf.umd.min.js","libs/pdf.min.js","libs/pdf.worker.min.js","libs/xlsx.full.min.js","libs/mammoth.browser.min.js"];self.addEventListener("install",e=>{e.waitUntil(caches.open(VERSION).then(e=>e.addAll(FILES)))}),self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(e=>Promise.all(e.filter(e=>e!==VERSION).map(e=>caches.delete(e)))).then(()=>self.clients.claim()))}),self.addEventListener("fetch",e=>{const n=new URL(e.request.url);"GET"===e.request.method&&n.origin===location.origin&&e.respondWith(caches.match(e.request,{ignoreSearch:!0}).then(n=>n||fetch(e.request).then(n=>{if(n.ok){const t=n.clone();caches.open(VERSION).then(n=>n.put(e.request,t))}return n}).catch(()=>caches.match("index.html"))))});

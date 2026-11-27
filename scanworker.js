@@ -1,10 +1,2 @@
-/* CheckUP scan worker: reads bubble sheets off the main thread */
-importScripts('engine.js');
-self.onmessage = e => {
-  const { id, data, w, h, n, fmt } = e.data;
-  let res;
-  try { res = Tsek.scan({ data, width: w, height: h }, Tsek.layout(n, fmt)); }
-  catch (err) { res = { ok: false, error: String(err && err.message || err) }; }
-  const transfer = res.ok ? res.slips.map(s => s.rect.g.buffer) : [];
-  self.postMessage({ id, res }, transfer);
-};
+/*! CheckUP · Bubble Sheet Grader. (c) 2026 John Justin C. Mesias. All rights reserved. Not to be copied, modified or redistributed without permission. */
+importScripts("engine.js"),self.onmessage=s=>{const{id:e,data:t,w:a,h:r,n:i,fmt:o}=s.data;let n;try{n=Tsek.scan({data:t,width:a,height:r},Tsek.layout(i,o))}catch(s){n={ok:!1,error:String(s&&s.message||s)}}const c=n.ok?n.slips.map(s=>s.rect.g.buffer):[];self.postMessage({id:e,res:n},c)};

@@ -1,5 +1,7 @@
 # CheckUP · Bubble Sheet Grader (offline version)
 
+© 2026 John Justin C. Mesias. All rights reserved. See `LICENSE.txt`. The code may not be copied, modified or redistributed without permission.
+
 Print bubble answer sheets, scan them with a phone camera, and get scores and item analysis. Works without an account and without internet once installed.
 
 ## What's in this folder
@@ -10,6 +12,7 @@ Print bubble answer sheets, scan them with a phone camera, and get scores and it
 | `engine.js` | Sheet layouts and the bubble scanner |
 | `scanworker.js` | Runs the scanner in the background during live scanning |
 | `sw.js`, `manifest.webmanifest`, `icon-*.png`, `apple-touch-icon.png` | Make it installable and usable offline |
+| `LICENSE.txt` | Copyright and terms of use |
 | `libs/` | PDF, Excel and Word readers, bundled so nothing loads from the internet |
 
 Upload **all** of these files, keeping the `libs` folder.
