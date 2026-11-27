@@ -380,6 +380,21 @@ const Tsek = (() => {
     return lineA > base + 0.13 && lineB > base + 0.13 && Math.min(lineA, lineB) > 0.45;
   }
 
+  // Strength of an X pattern inside a filled circle: the 4-fold (cos 4θ) part of the angular darkness
+  // profile, phased on the diagonals. A plain shade is near 0 in every direction; an X over the shade is not.
+  function xFold(R, b) {
+    const { g, w, h, s } = R, paper = Math.max(b._paper || 255, 1);
+    let c = 0, sn = 0, n = 0;
+    for (let deg = 0; deg < 360; deg += 5) {
+      const a = deg * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a); let t = 0, m = 0;
+      for (let d = b.r * 0.3; d <= b.r * 0.85; d += 0.1) { const X = Math.round((b.x + ca * d) * s), Y = Math.round((b.y + sa * d) * s); if (X >= 0 && Y >= 0 && X < w && Y < h) { t += 1 - g[Y * w + X] / paper; m++; } }
+      const v = m ? t / m : 0; c += v * Math.cos(4 * a); sn += v * Math.sin(4 * a); n++;
+    }
+    c /= n; sn /= n;
+    const amp = 2 * Math.hypot(c, sn), ph = ((Math.atan2(sn, c) * 180 / Math.PI / 4) % 90 + 90) % 90;
+    return { amp, diag: Math.abs(ph - 45) < 22 };
+  }
+
   function decide(ds, globalBase) {
     const sorted = ds.slice().sort((a, b) => a - b);
     let base = sorted[Math.floor((ds.length - 1) / 2)];
@@ -417,6 +432,14 @@ const Tsek = (() => {
         const r2 = decide(ds.map((d, i) => xs[i] ? gb : d), gb);
         if (r2.marked.length >= 1 && r2.marked.every(i => !xs[i])) { r = r2; crossedItems.push(qi + 1); }
         else if (r.marked.length === 1) r.amb = true; // a lone mark that may be crossed out: let the teacher check
+      }
+      if (r.marked.length > 1 && !crossedItems.includes(qi + 1)) {
+        // two or more shaded bubbles: one of them carries a faint X drawn over the shading
+        const xf = r.marked.map(i => ({ i, ...xFold(R, row[i]) })).sort((p, q) => q.amp - p.amp);
+        if (xf[0].diag && xf[0].amp > 0.016 && xf[0].amp > 2 * xf[1].amp) {
+          const r2 = decide(ds.map((d, i) => i === xf[0].i ? gb : d), gb);
+          if (r2.marked.length >= 1 && !r2.marked.includes(xf[0].i)) { r = r2; crossedItems.push(qi + 1); }
+        }
       }
       answers[qi] = r.marked.map(i => LET[i]).join('');
       if (r.amb) ambItems.push(qi + 1);
